@@ -48,18 +48,6 @@ describe('Enum validation type', function() {
         'enumDoc',
         errorFormatter.enumPredefinedValueViolation('staticEnumProp', [ 'value1', 2 ]));
     });
-
-    it('rejects a value when the property does not declare a list of predefined values', function() {
-      var doc = {
-        _id: 'enumDoc',
-        invalidEnumProp: 2
-      };
-
-      testHelper.verifyDocumentNotCreated(
-        doc,
-        'enumDoc',
-        'item "invalidEnumProp" belongs to an enum that has no predefined values');
-    });
   });
 
   describe('dynamic validation', function() {

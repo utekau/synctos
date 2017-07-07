@@ -50,6 +50,7 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       maximumValueExclusive: validateMaximumExclusiveFloatValueConstraint
     }
   );
+  var enumConstraints = buildConstraints({ predefinedValues: validateEnumPredefinedValuesConstraint });
 
   validatePropertyDefinitions(docPropertyValidatorDefinitions);
 
@@ -91,6 +92,10 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
         case 'date':
           break;
         case 'enum':
+          if (isValueUndefined(propertyDefinition.predefinedValues)) {
+            addValidationError(propertyName, 'does not declare a "predefinedValues" constraint');
+          }
+          validateItemConstraints(propertyName, propertyDefinition, enumConstraints);
           break;
         case 'attachmentReference':
           break;
@@ -228,6 +233,23 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
 
     if (!isValueUndefined(itemValidatorDefinition.maximumValue)) {
       addValidationError(itemName, 'declares both "maximumValue" and "maximumValueExclusive" constraints');
+    }
+  }
+
+  function validateEnumPredefinedValuesConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (constraintValue instanceof Array) {
+      if (constraintValue.length < 1) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is empty');
+      }
+
+      for (var predefinedValueIndex = 0; predefinedValueIndex < constraintValue.length; predefinedValueIndex++) {
+        var predefinedValue = constraintValue[predefinedValueIndex];
+        if (typeof(predefinedValue) !== 'string' && !isInteger(predefinedValue)) {
+          addValidationError(itemName, 'declares a "' + constraintName + '" constraint that specifies a value that is not a string or an integer: ' + JSON.stringify(predefinedValue));
+        }
+      }
+    } else if (typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not an array or a function');
     }
   }
 

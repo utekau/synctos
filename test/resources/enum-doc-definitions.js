@@ -9,9 +9,6 @@
         type: 'enum',
         predefinedValues: [ 'value1', 2 ]
       },
-      invalidEnumProp: {
-        type: 'enum'
-      },
       dynamicPredefinedValues: {
         type: 'array'
       },

@@ -25,7 +25,8 @@ describe('Document definition properties validator', function() {
         type: 'date'
       },
       enumTypeProp: {
-        type: 'enum'
+        type: 'enum',
+        predefinedValues: [ 1 ]
       },
       attachmentReferenceTypeProp: {
         type: 'attachmentReference'
