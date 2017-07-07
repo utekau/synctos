@@ -7,7 +7,7 @@ outputDir="build/sync-functions"
 mkdir -p "$outputDir"
 mkdir -p build/test-reports/
 
-echo "Linting modules and specs with JSHint\n"
+echo "Linting modules and specs with JSHint...\n"
 node_modules/jshint/bin/jshint src/*.js test/*.js
 
 sampleDocDefinitionsPath="samples/sample-sync-doc-definitions.js"
@@ -33,5 +33,5 @@ for docDefinitionPath in "$definitionsDir"/*-doc-definitions.js; do
   ./make-sync-function "$docDefinitionPath" "$outputFile"
 done
 
-echo "\nLinting generated sync functions with JSHint"
+echo "\nLinting generated sync functions with JSHint..."
 node_modules/jshint/bin/jshint "$outputDir"/*.js

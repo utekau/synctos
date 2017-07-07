@@ -11,6 +11,7 @@ exports.validate = validate;
 function validate(docDefinition, docPropertyValidatorDefinitions) {
   var validationErrors = [ ];
 
+  // The universal constraints apply to every validation type
   var universalConstraints = {
     required: validateRequiredConstraint,
     mustNotBeMissing: validateBooleanConstraint,
@@ -24,6 +25,32 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
     customValidation: validateCustomValidationConstraint
   };
 
+  var booleanConstraints = buildConstraints({ });
+  var stringConstraints = buildConstraints(
+    {
+      mustNotBeEmpty: validateBooleanConstraint,
+      regexPattern: validateRegexPatternConstraint,
+      minimumLength: validateMinimumLengthConstraint,
+      maximumLength: validateMaximumLengthConstraint
+    }
+  );
+  var integerConstraints = buildConstraints(
+    {
+      minimumValue: validateMinimumIntegerValueConstraint,
+      minimumValueExclusive: validateMinimumExclusiveIntegerValueConstraint,
+      maximumValue: validateMaximumIntegerValueConstraint,
+      maximumValueExclusive: validateMaximumExclusiveIntegerValueConstraint
+    }
+  );
+  var floatConstraints = buildConstraints(
+    {
+      minimumValue: validateMinimumFloatValueConstraint,
+      minimumValueExclusive: validateMinimumExclusiveFloatValueConstraint,
+      maximumValue: validateMaximumFloatValueConstraint,
+      maximumValueExclusive: validateMaximumExclusiveFloatValueConstraint
+    }
+  );
+
   validatePropertyDefinitions(docPropertyValidatorDefinitions);
 
   function validatePropertyDefinitions(propertyDefinitions) {
@@ -32,7 +59,7 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       if (isAnObject(propertyDefinition)) {
         validatePropertyDefinition(propertyName, propertyDefinition);
       } else {
-        validationErrors.push('the "propertyValidators" entry "' + propertyName + '" is not an object');
+        addValidationError(propertyName, 'is not an object');
       }
     }
   }
@@ -40,23 +67,24 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
   function validatePropertyDefinition(propertyName, propertyDefinition) {
     var propertyType = propertyDefinition.type;
     if (isValueUndefined(propertyType)) {
-      validationErrors.push('the "propertyValidators" entry "' + propertyName + '" does not declare a "type"');
+      addValidationError(propertyName, 'does not declare a "type"');
 
       return;
     }
 
-    // The universal constraints apply to every validation type
-    validateItemConstraints(propertyName, propertyDefinition, universalConstraints);
-
     if (typeof(propertyType) === 'string') {
       switch (propertyType) {
         case 'string':
+          validateItemConstraints(propertyName, propertyDefinition, stringConstraints);
           break;
         case 'integer':
+          validateItemConstraints(propertyName, propertyDefinition, integerConstraints);
           break;
         case 'float':
+          validateItemConstraints(propertyName, propertyDefinition, floatConstraints);
           break;
         case 'boolean':
+          validateItemConstraints(propertyName, propertyDefinition, booleanConstraints);
           break;
         case 'datetime':
           break;
@@ -73,17 +101,133 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
         case 'hashtable':
           break;
         default:
-          validationErrors.push('the "propertyValidators" entry "' + propertyName + '" declares an invalid "type": "' + propertyType + '"');
+          addValidationError(propertyName, 'declares an invalid "type": "' + propertyType + '"');
           break;
       }
     } else if (typeof(propertyType) !== 'function') {
-      validationErrors.push('the "propertyValidators" entry "' + propertyName + '" declares a "type" that is neither a string nor a function');
+      addValidationError(propertyName, 'declares a "type" that is neither a string nor a function');
     }
   }
 
   function validateBooleanConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
     if (typeof(constraintValue) !== 'boolean' && typeof(constraintValue) !== 'function') {
-      validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares a "' + constraintName + '" constraint that is not a boolean or a function');
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a boolean or a function');
+    }
+  }
+
+  function validateRegexPatternConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (!(constraintValue instanceof RegExp) && typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a regular expression or a function');
+    }
+  }
+
+  function validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue, minimumValue) {
+    if (!isInteger(constraintValue) && typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not an integer or a function');
+    } else if (isInteger(minimumValue) && constraintValue < minimumValue) {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is less than the minimum: ' + minimumValue);
+    }
+  }
+
+  function validateMinimumLengthConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue, 0);
+
+    if (constraintValue === 0 && itemValidatorDefinition.mustNotBeEmpty === true) {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint of zero, which is directly contradicated by the "mustNotBeEmpty" constraint');
+    }
+  }
+
+  function validateMaximumLengthConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue, 1);
+
+    if (isInteger(constraintValue) && isInteger(itemValidatorDefinition.minimumLength) && constraintValue < itemValidatorDefinition.minimumLength) {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is less than the value of the "minimumLength" constraint');
+    }
+  }
+
+  function validateMinimumIntegerValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMinimumExclusiveIntegerValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.minimumValue)) {
+      addValidationError(itemName, 'declares both "minimumValue" and "minimumValueExclusive" constraints');
+    }
+  }
+
+  function validateMaximumIntegerValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (typeof(constraintValue === 'number')) {
+      if (typeof(itemValidatorDefinition.minimumValue) === 'number' && constraintValue < itemValidatorDefinition.minimumValue) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is less than the value of the "minimumValue" constraint');
+      } else if (typeof(itemValidatorDefinition.minimumValueExclusive) === 'number' && constraintValue <= itemValidatorDefinition.minimumValueExclusive) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not greater than the value of the "minimumValueExclusive" constraint');
+      }
+    }
+  }
+
+  function validateMaximumExclusiveIntegerValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (typeof(constraintValue === 'number')) {
+      if (typeof(itemValidatorDefinition.minimumValue) === 'number' && constraintValue <= itemValidatorDefinition.minimumValue) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not greater than the value of the "minimumValue" constraint');
+      } else if (typeof(itemValidatorDefinition.minimumValueExclusive) === 'number' && constraintValue <= itemValidatorDefinition.minimumValueExclusive + 1) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not at least two greater than the value of the "minimumValueExclusive" constraint');
+      }
+    }
+
+    if (!isValueUndefined(itemValidatorDefinition.maximumValue)) {
+      addValidationError(itemName, 'declares both "maximumValue" and "maximumValueExclusive" constraints');
+    }
+  }
+
+  function validateFloatConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (typeof(constraintValue) !== 'number' && typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a number or a function');
+    }
+  }
+
+  function validateMinimumFloatValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateFloatConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMinimumExclusiveFloatValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateFloatConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.minimumValue)) {
+      addValidationError(itemName, 'declares both "minimumValue" and "minimumValueExclusive" constraints');
+    }
+  }
+
+  function validateMaximumFloatValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateFloatConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (typeof(constraintValue === 'number')) {
+      if (typeof(itemValidatorDefinition.minimumValue) === 'number' && constraintValue < itemValidatorDefinition.minimumValue) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is less than the value of the "minimumValue" constraint');
+      } else if (typeof(itemValidatorDefinition.minimumValueExclusive) === 'number' && constraintValue <= itemValidatorDefinition.minimumValueExclusive) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not greater than the value of the "minimumValueExclusive" constraint');
+      }
+    }
+  }
+
+  function validateMaximumExclusiveFloatValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateFloatConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (typeof(constraintValue === 'number')) {
+      if (typeof(itemValidatorDefinition.minimumValue) === 'number' && constraintValue <= itemValidatorDefinition.minimumValue) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not greater than the value of the "minimumValue" constraint');
+      } else if (typeof(itemValidatorDefinition.minimumValueExclusive) === 'number' && constraintValue <= itemValidatorDefinition.minimumValueExclusive) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not greater than the value of the "minimumValueExclusive" constraint');
+      }
+    }
+
+    if (!isValueUndefined(itemValidatorDefinition.maximumValue)) {
+      addValidationError(itemName, 'declares both "maximumValue" and "maximumValueExclusive" constraints');
     }
   }
 
@@ -91,7 +235,7 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
     validateBooleanConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
 
     if (constraintValue === true && (itemValidatorDefinition.mustNotBeNull === true || itemValidatorDefinition.mustNotBeMissing)) {
-      validationErrors.push('the "propertyValidators" entry "' + itemName + '" should not enable the "required" constraint when either "mustNotBeNull" or "mustNotBeNull" are also enabled');
+      addValidationError(itemName, 'should not enable the "required" constraint when either "mustNotBeNull" or "mustNotBeNull" are also enabled');
     }
   }
 
@@ -107,13 +251,13 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
     if (constraintValue === true && (hasImmutableConstraint0 || hasImmutableConstraint1 || hasImmutableConstraint2)) {
       var otherConstraintsString =
         '"' + immutableConstraints[0] + '", "' + immutableConstraints[1] + '" or "' + immutableConstraints[2] + '"';
-      validationErrors.push('the "propertyValidators" entry "' + itemName + '" should not enable the "' + constraintName + '" constraint when any of ' + otherConstraintsString + ' are also enabled');
+      addValidationError(itemName, 'should not enable the "' + constraintName + '" constraint when any of ' + otherConstraintsString + ' are also enabled');
     }
   }
 
   function validateMustEqualConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
     if (!isValueNullOrUndefined(constraintValue) && !isValueUndefined(itemValidatorDefinition.mustEqualStrict)) {
-      validationErrors.push('the "propertyValidators" entry "' + itemName + '" should not declare both "mustEqual" and "mustEqualStrict" constraints');
+      addValidationError(itemName, 'declares both "mustEqual" and "mustEqualStrict" constraints');
     }
 
     validateMustEqualConstraintType(itemName, itemValidatorDefinition, constraintName, constraintValue);
@@ -122,9 +266,9 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
   function validateMustEqualStrictConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
     if (constraintValue === null) {
       if (itemValidatorDefinition.required === true) {
-        validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal null but also that it is required');
+        addValidationError(itemName, 'declares that it must equal null but also that it is required');
       } else if (itemValidatorDefinition.mustNotBeNull === true) {
-        validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal null but also that it must not be null');
+        addValidationError(itemName, 'declares that it must equal null but also that it must not be null');
       }
     }
 
@@ -136,61 +280,61 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       switch (itemValidatorDefinition.type) {
         case 'string':
           if (typeof(constraintValue) !== 'string') {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a string');
+            addValidationError(itemName, 'declares that it must equal a value that is not a string');
           }
           break;
         case 'integer':
           if (!isInteger(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not an integer');
+            addValidationError(itemName, 'declares that it must equal a value that is not an integer');
           }
           break;
         case 'float':
           if (typeof(constraintValue) !== 'number') {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a number');
+            addValidationError(itemName, 'declares that it must equal a value that is not a number');
           }
           break;
         case 'boolean':
           if (typeof(constraintValue) !== 'boolean') {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a boolean');
+            addValidationError(itemName, 'declares that it must equal a value that is not a boolean');
           }
           break;
         case 'datetime':
           if (!(constraintValue instanceof Date) && !isIso8601DateTimeString(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a datetime');
+            addValidationError(itemName, 'declares that it must equal a value that is not a datetime');
           }
           break;
         case 'date':
           if (!(constraintValue instanceof Date) && !isIso8601DateString(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a date');
+            addValidationError(itemName, 'declares that it must equal a value that is not a date');
           }
           break;
         case 'enum':
           if (itemValidatorDefinition.predefinedValues instanceof Array) {
             if (itemValidatorDefinition.predefinedValues.indexOf(constraintValue) < 0) {
-              validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not in the list of predefined values');
+              addValidationError(itemName, 'declares that it must equal a value that is not in the list of predefined values');
             }
           } else if (typeof(constraintValue) !== 'string' && !isInteger(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a string or integer');
+            addValidationError(itemName, 'declares that it must equal a value that is not a string or integer');
           }
           break;
         case 'attachmentReference':
           if (typeof(constraintValue) !== 'string') {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not a string');
+            addValidationError(itemName, 'declares that it must equal a value that is not a string');
           }
           break;
         case 'array':
           if (!(constraintValue instanceof Array)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not an array');
+            addValidationError(itemName, 'declares that it must equal a value that is not an array');
           }
           break;
         case 'object':
           if (!isAnObject(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not an object');
+            addValidationError(itemName, 'declares that it must equal a value that is not an object');
           }
           break;
         case 'hashtable':
           if (!isAnObject(constraintValue)) {
-            validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares that it must equal a value that is not an object');
+            addValidationError(itemName, 'declares that it must equal a value that is not an object');
           }
           break;
       }
@@ -199,7 +343,7 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
 
   function validateCustomValidationConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
     if (typeof(constraintValue) !== 'function') {
-      validationErrors.push('the "propertyValidators" entry "' + itemName + '" declares a value that is not a function');
+      addValidationError(itemName, 'declares a value that is not a function');
     }
   }
 
@@ -214,8 +358,27 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       var constraintValidator = constraints[itemConstraintName];
       if (!isValueUndefined(constraintValidator)) {
         constraintValidator(itemName, itemValidatorDefinition, itemConstraintName, itemConstraintValue);
+      } else {
+        addValidationError(itemName, 'includes an unsupported constraint: "' + itemConstraintName + '"');
       }
     }
+  }
+
+  function addValidationError(itemName, message) {
+    validationErrors.push('the "propertyValidators" entry "' + itemName + '" ' + message);
+  }
+
+  function buildConstraints(itemConstraints) {
+    var constraints = { };
+    for (var itemConstraintName in itemConstraints) {
+      constraints[itemConstraintName] = itemConstraints[itemConstraintName];
+    }
+
+    for (var universalConstraintName in universalConstraints) {
+      constraints[universalConstraintName] = universalConstraints[universalConstraintName];
+    }
+
+    return constraints;
   }
 
   return validationErrors;
