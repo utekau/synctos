@@ -51,6 +51,13 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
     }
   );
   var enumConstraints = buildConstraints({ predefinedValues: validateEnumPredefinedValuesConstraint });
+  var attachmentReferenceConstraints = buildConstraints(
+    {
+      supportedExtensions: validateAttachmentRefArrayConstraint,
+      supportedContentTypes: validateAttachmentRefArrayConstraint,
+      maximumSize: validateAttachmentRefMaximumSizeConstraint
+    }
+  );
 
   validatePropertyDefinitions(docPropertyValidatorDefinitions);
 
@@ -98,6 +105,10 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
           validateItemConstraints(propertyName, propertyDefinition, enumConstraints);
           break;
         case 'attachmentReference':
+          if (docDefinition.allowAttachments !== true) {
+            addValidationError(propertyName, 'cannot be applied when the document\'s "allowAttachments" property is not enabled');
+          }
+          validateItemConstraints(propertyName, propertyDefinition, attachmentReferenceConstraints);
           break;
         case 'array':
           break;
@@ -250,6 +261,34 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       }
     } else if (typeof(constraintValue) !== 'function') {
       addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not an array or a function');
+    }
+  }
+
+  function validateAttachmentRefArrayConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (constraintValue instanceof Array) {
+      if (constraintValue.length < 1) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is empty');
+      }
+
+      for (var elementIndex = 0; elementIndex < constraintValue.length; elementIndex++) {
+        var elementValue = constraintValue[elementIndex];
+        if (typeof(elementValue) !== 'string') {
+          addValidationError(itemName, 'declares a "' + constraintName + '" constraint that specifies a value that is not a string: ' + JSON.stringify(elementValue));
+        }
+      }
+    } else if (typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not an array or a function');
+    }
+  }
+
+  function validateAttachmentRefMaximumSizeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateIntegerConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue, 1);
+
+    if (typeof(constraintValue === 'number') &&
+        docDefinition.attachmentConstraints &&
+        typeof(docDefinition.attachmentConstraints.maximumTotalSize) === 'number' &&
+        constraintValue > docDefinition.attachmentConstraints.maximumTotalSize) {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is greater than the value of the document type\'s "attachmentConstraints.maximumTotalSize" constraint');
     }
   }
 

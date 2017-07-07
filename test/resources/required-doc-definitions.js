@@ -11,6 +11,7 @@ function() {
     staticDoc: {
       typeFilter: customTypeFilter,
       channels: { write: 'write' },
+      allowAttachments: true,
       propertyValidators: {
         stringProp: {
           type: 'string',
@@ -76,6 +77,7 @@ function() {
     dynamicDoc: {
       typeFilter: customTypeFilter,
       channels: { write: 'write' },
+      allowAttachments: true,
       propertyValidators: {
         dynamicPropsRequired: {
           type: 'boolean'

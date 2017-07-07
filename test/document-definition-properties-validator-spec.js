@@ -45,7 +45,10 @@ describe('Document definition properties validator', function() {
       }
     };
 
-    testDocDefinition = { propertyValidators: testPropertyValidators };
+    testDocDefinition = {
+      propertyValidators: testPropertyValidators,
+      allowAttachments: true
+    };
   });
 
   it('approves valid property validators', function() {

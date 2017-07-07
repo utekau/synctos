@@ -214,7 +214,7 @@ describe('Functionality that is common to all documents:', function() {
 
   it('cannot include attachments in documents that do not explicitly allow them', function() {
     var doc = {
-      '_id': 'generalDoc',
+      '_id': 'noAttachmentsDoc',
       '_attachments': {
         'foo.pdf': {
           'content_type': 'application/pdf',
@@ -224,7 +224,7 @@ describe('Functionality that is common to all documents:', function() {
     };
 
     expect(testHelper.syncFunction).withArgs(doc).to.throwException(function(ex) {
-      testHelper.verifyValidationErrors('generalDoc', errorFormatter.allowAttachmentsViolation(), ex);
+      testHelper.verifyValidationErrors('noAttachmentsDoc', errorFormatter.allowAttachmentsViolation(), ex);
     });
   });
 });

@@ -14,6 +14,7 @@ function() {
       typeFilter: function(doc) {
         return doc._id === 'generalDoc';
       },
+      allowAttachments: true,
       propertyValidators: {
         arrayProp: {
           type: 'array'
@@ -81,6 +82,14 @@ function() {
           }
         }
       }
+    },
+    noAttachmentsDoc: {
+      typeFilter: function(doc) {
+        return doc._id === 'noAttachmentsDoc';
+      },
+      channels: { write: 'write' },
+      allowUnknownProperties: true,
+      propertyValidators: { }
     }
   };
 }
