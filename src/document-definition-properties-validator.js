@@ -58,6 +58,22 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
       maximumSize: validateAttachmentRefMaximumSizeConstraint
     }
   );
+  var datetimeConstraints = buildConstraints(
+    {
+      minimumValue: validateMinimumDatetimeValueConstraint,
+      minimumValueExclusive: validateMinimumExclusiveDatetimeValueConstraint,
+      maximumValue: validateMaximumDatetimeValueConstraint,
+      maximumValueExclusive: validateMaximumExclusiveDatetimeValueConstraint
+    }
+  );
+  var dateConstraints = buildConstraints(
+    {
+      minimumValue: validateMinimumDateValueConstraint,
+      minimumValueExclusive: validateMinimumExclusiveDateValueConstraint,
+      maximumValue: validateMaximumDateValueConstraint,
+      maximumValueExclusive: validateMaximumExclusiveDateValueConstraint
+    }
+  );
 
   validatePropertyDefinitions(docPropertyValidatorDefinitions);
 
@@ -95,8 +111,10 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
           validateItemConstraints(propertyName, propertyDefinition, booleanConstraints);
           break;
         case 'datetime':
+          validateItemConstraints(propertyName, propertyDefinition, datetimeConstraints);
           break;
         case 'date':
+          validateItemConstraints(propertyName, propertyDefinition, dateConstraints);
           break;
         case 'enum':
           if (isValueUndefined(propertyDefinition.predefinedValues)) {
@@ -289,6 +307,74 @@ function validate(docDefinition, docPropertyValidatorDefinitions) {
         typeof(docDefinition.attachmentConstraints.maximumTotalSize) === 'number' &&
         constraintValue > docDefinition.attachmentConstraints.maximumTotalSize) {
       addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is greater than the value of the document type\'s "attachmentConstraints.maximumTotalSize" constraint');
+    }
+  }
+
+  function validateDatetimeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (typeof(constraintValue) === 'string') {
+      if (!isIso8601DateTimeString(constraintValue)) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a valid ISO 8601 datetime string');
+      }
+    } else if (!(constraintValue instanceof Date) && typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a Date object, a string or a function');
+    }
+  }
+
+  function validateMinimumDatetimeValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDatetimeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMinimumExclusiveDatetimeValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDatetimeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.minimumValue)) {
+      addValidationError(itemName, 'declares both "minimumValue" and "minimumValueExclusive" constraints');
+    }
+  }
+
+  function validateMaximumDatetimeValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDatetimeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMaximumExclusiveDatetimeValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDatetimeConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.maximumValue)) {
+      addValidationError(itemName, 'declares both "maximumValue" and "maximumValueExclusive" constraints');
+    }
+  }
+
+  function validateDateConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    if (typeof(constraintValue) === 'string') {
+      if (!isIso8601DateString(constraintValue)) {
+        addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a valid ISO 8601 date string');
+      }
+    } else if (!(constraintValue instanceof Date) && typeof(constraintValue) !== 'function') {
+      addValidationError(itemName, 'declares a "' + constraintName + '" constraint that is not a Date object, a string or a function');
+    }
+  }
+
+  function validateMinimumDateValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDateConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMinimumExclusiveDateValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDateConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.minimumValue)) {
+      addValidationError(itemName, 'declares both "minimumValue" and "minimumValueExclusive" constraints');
+    }
+  }
+
+  function validateMaximumDateValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDateConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+  }
+
+  function validateMaximumExclusiveDateValueConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue) {
+    validateDateConstraint(itemName, itemValidatorDefinition, constraintName, constraintValue);
+
+    if (!isValueUndefined(itemValidatorDefinition.maximumValue)) {
+      addValidationError(itemName, 'declares both "maximumValue" and "maximumValueExclusive" constraints');
     }
   }
 
